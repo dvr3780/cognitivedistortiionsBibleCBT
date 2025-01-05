@@ -1,3 +1,8 @@
+""" 
+Cognitive distortion
+ """
+
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from nltk import word_tokenize, pos_tag
@@ -38,8 +43,8 @@ def get_online_synonyms(word):
     #this recieved locally in sqllite db with thesaurus from project gutenberg
     conn = sqlite3.connect('my_database.db')
     cursor = conn.cursor()
-    print("get_online_synonyms: word")
-    print(word)
+    #print("get_online_synonyms: word")
+    #print(word)
     # Insert data into the table
     cursor.execute("SELECT synonym FROM synonymslistings WHERE term='%s'" % word.replace("'","''"))
     result = cursor.fetchall()
@@ -128,7 +133,7 @@ def similarWord(sentences, terms):
             continue
         for term in terms:
             #print("word, term")
-            print(f"{word} {term}")
+            #print(f"{word} {term}")
             word = word.strip()
             term = term.strip()
                 
@@ -201,72 +206,81 @@ toRecord = True
 # Start recorder with the given values 
 # of duration and sample frequency
 file = "./data/recording.wav"
-    
-if(toRecord):
-    recording = sd.rec(int(duration * freq), 
-                   samplerate=freq, channels=2)
-    print("start speaking")
-    # Record audio for the given number of seconds
-    sd.wait()
-    
-    # This will convert the NumPy array to an audio
-    # file with the given sampling frequency
-    write(file, freq, recording)
-    wait_for_file(file, 1)
+while(True):   
+    if(toRecord):
+        print("Hit Enter then start speaking. Make sure microphone settings enabled")
+        input()
+        recording = sd.rec(int(duration * freq), 
+                    samplerate=freq, channels=2)
+        print("Recording for 10secs... start speaking")
+        
+        # Record audio for the given number of seconds
+        sd.wait()
+        
+        # This will convert the NumPy array to an audio
+        # file with the given sampling frequency
+        write(file, freq, recording)
+        wait_for_file(file, 1)
 
-# Load the audio file
-audio = AudioSegment.from_file(file, format="wav")
+    # Load the audio file
+    audio = AudioSegment.from_file(file, format="wav")
 
-# Export the audio file to a supported format
-audio.export(file, format="wav")
+    # Export the audio file to a supported format
+    audio.export(file, format="wav")
 
-recognizer = sr.Recognizer()
+    recognizer = sr.Recognizer()
 
-with sr.AudioFile(file) as source:
-    audio = recognizer.record(source)
+    with sr.AudioFile(file) as source:
+        audio = recognizer.record(source)
 
-try:
-    sentences = recognizer.recognize_google(audio)
-    print("Transcription:", sentences)
-except sr.UnknownValueError:
-    print("Could not understand audio")
-except sr.RequestError as e:
-    print("Could not request results from Google Speech Recognition service; {0}".format(e))
+    try:
+        sentences = recognizer.recognize_google(audio)
+        print("Transcription:", sentences)
+    except sr.UnknownValueError:
+        print("Could not understand audio")
+    except sr.RequestError as e:
+        print("Could not request results from Google Speech Recognition service; {0}".format(e))
 
 
-#sentences = "I ought to be able to handle this on my own"
-rating = []
-print("sentences")
-print(sentences)
-for r in df.iterrows():
-    #print("r[1]")
-    #print(r[1])
-    label = r[1]["cognitive_distortions_label"]
-    terms = r[1]["terms"].split('-')
-    #print("terms")
-    #print(terms)
-    cogTerms.append({"label": label, "terms": terms})
-    similarterms = list(set(similarWord(sentences, terms)))
-    #print("similarterms")
-    #print(similarterms)
-    terms = list(set(similarterms) | set(terms))
-    #print("terms")
-    #print(terms)
-    #print("sentences")
-    #print(sentences)
-    documents = terms + [sentences]
-    cosine_similarities = outputSimilarity(documents)
-    rating.append({"label": label, "terms_score": cosine_similarities})
-    
-#high = 0
-print(sorted(rating, key=lambda x: max(x['terms_score'])))
+    #sentences = "I ought to be able to handle this on my own"
+    rating = []
+    print("sentences")
+    print(sentences)
+    for r in df.iterrows():
+        #print("r[1]")
+        #print(r[1])
+        label = r[1]["cognitive_distortions_label"]
+        terms = r[1]["terms"].split('-')
+        #print("terms")
+        #print(terms)
+        cogTerms.append({"label": label, "terms": terms})
+        similarterms = list(set(similarWord(sentences, terms)))
+        print("similarterms")
+        print(similarterms)
+        terms = list(set(similarterms) | set(terms))
+        #print("terms")
+        #print(terms)
+        #print("sentences")
+        #print(sentences)
+        documents = terms + [sentences]
+        cosine_similarities = outputSimilarity(documents)
+        rating.append({"label": label, "terms_score": cosine_similarities})
+        
+    #high = 0
+    print(sorted(rating, key=lambda x: max(x['terms_score'])))
 
-highestRating=max(rating, key=lambda x: max(x["terms_score"]))
-print("---------------------------------------------")
-print(highestRating['label'])
-topThreeDistortions = sorted(rating, key=lambda x: max(x['terms_score']), reverse=True)[:3]
-print("Top 3 distortions")
-for d in topThreeDistortions:
-    print(d['label'])
-    print("Bible verse - Put cognitive distortion on trial - ")
-    print(bibleVerseCBT(d['label']))
+    highestRating=max(rating, key=lambda x: max(x["terms_score"]))
+    print("---------------------------------------------")
+    print(highestRating['label'])
+    #topThreeDistortions = sorted(rating, key=lambda x: (max(x['terms_score']), x if max(x['terms_score']) > 0.0 else 0.0), reverse=True)[:10]
+    topDistortions = sorted(rating, key=lambda x: (max(x['terms_score'])), reverse=True)[:10]
+    print("Top distortions")
+    for d in topDistortions:
+        for r in rating:
+            if r["label"] == d['label']:        
+                if(max(r["terms_score"]) != 0.0):
+                    print(d['label'])
+                    print("terms_score")
+                    print(r['terms_score'])
+                    print("Bible verse - Put cognitive distortion on trial - ")
+                    print(bibleVerseCBT(d['label']))
